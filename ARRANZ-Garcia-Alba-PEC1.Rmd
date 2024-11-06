@@ -1,0 +1,142 @@
+---
+title: "ARRANZ-García-Alba-PEC1"
+author: "Alba Arranz"
+date: "2024-11-04"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Tabla de contenidos
+
+1. Abstracta
+2. Objetivos del estudio
+3. Materiales y métodos
+4. Resultados
+5. 
+
+# Abstract
+
+Este estudio presenta un proceso de análisis de datos hecho con R. Los datos han
+sido descargados de la base de datos MetabolomicsWorkbechR en formato Summary
+Experiment. Los datos han sido cargados en el paquete POMA para hacer un análi-
+sis exploratorio que incluye un análisis univariante y multivariante. Los resul-
+tados sugieren un posible cambio en los metabolitos aunque no son concluyentes. 
+
+# Objetivos del estudio
+
+El objetivo de este estudio es la obtención de unos datos metabolómicos de un 
+repositorio y llevar a cabo un análisis exploratorio de estos.
+
+# Materiales y métodos
+
+Los datos corresponden a diferentes metabolitos detectados por espectrometria de
+masas (GCMS) en muestras intestinales pre y post transplante. Los datos han sido
+obtenidos del paquete 'metabolomicsWorkbenchR' en un contenedor 
+SummarizedExperiment del paquete con el mismo nombre. Para el análisis explora-
+torio se ha utilizado el paquete POMA.Primero se han buscado valores perdidos, 
+y después los datos han sido normalizados. Los datos normalizados se han grafi-
+cado en boxplots y también se han graficado los posibles 
+outliers. 
+
+Para el análisis exploratorio primero se ha hecho un análisis univariante con 
+el modelo t-student para hacer una comparación de la presencia de los diferen-
+tes metabolitos en los dos grupos antes y después del transplante.Después se ha
+hecho un análisis multivariante mediante el análisis de componentes principales
+(PCA). 
+
+
+# Resultados
+
+## Datos
+
+Los datos del estudio contienen 12 muestras, de las cuáles 6 han sido obtenidas
+antes de un transplante y las otras 6 restantes después. Para estas 12 muestras
+se ha analizado por espectrometría de masas la presencia de 142 metabolitos di-
+ferentes.
+
+Con los datos normalizados, mediante un boxplot se observa que las muestras an-
+teriores al transplante presentan una ligera disminución en la presencia de me-
+tabólitos excepto para una muestra de post transplante que es la que tiene la 
+media más elevada de metabólitos. A pesar de haber cierta dispersión dentro de 
+muestras del mismo grupo no se detecta ningún outlayer en ellas. 
+
+```{r plots, echo=FALSE}
+library(POMA)
+library(SummarizedExperiment)
+library(metabolomicsWorkbenchR)
+library(ggtext)
+library(magrittr)
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(readr)
+experiment = do_query(
+  context = 'study',
+  input_item = 'study_id',
+  input_value = 'ST000002',
+  output_item = 'SummarizedExperiment'
+)
+metadata <- as.data.frame(colData(experiment))[, c(1, 6)]
+metadata <- metadata %>%
+  mutate(
+    Transplantation = recode(Transplantation,
+                         "Before transplantation" = "before",
+                         "After transplantation" = "after")
+  )
+View(metadata)
+View(assay(experiment))
+data <- PomaCreateObject(metadata = metadata, features = t(assay(experiment)))
+normalized <- data %>% 
+  PomaNorm(method = "log_pareto")
+PomaBoxplots(normalized, x = "samples")
+PomaOutliers(normalized)$polygon_plot
+```
+
+
+## Análisis univariante
+ 
+Del análisis univariante podemos observar 5 metabolitos con un p valor inferior
+a 0.1 y por tanto con un diferencia significativa. Estos 5 metabolitos son: áci-
+do fosfórico, ácido treónico, piruvato, 2-monooctadecanoato, levanbiosa. Única-
+mente el ácido fosfórico aumenta tras el transplante, mientras que el resto
+disminuyen. 
+
+```{r analisis univariante, echo=FALSE}
+metabolitos <- c( "Ácido fosfórico", "Ácido treónico", "Piruvato", "2-monooctadecanoato", "Levanbiosa")
+univ <- PomaUnivariate(normalized)
+univ <- as.data.frame(univ)
+class(univ)
+datos <- univ[1:5,-1]
+datos
+tabla <- data.frame(metabolitos, datos)
+tabla
+knitr::kable(tabla, caption = "Variación significativa de metabólitos")
+```
+
+## Análisis multivariante
+
+El análisis de las componentes principales muestra un ligero agrupamiento de las
+muestras de antes del transplante más abajo mientras que las de después se agru-
+pan más a la derecha. Este agrupamiento no es muy obvio y además las dos pri-
+meras componentes explican un 43.29% de la variabilidad. 
+
+```{r multivariante, echo=FALSE}
+poma_pca <- PomaPCA(normalized)
+poma_pca$factors_plot
+```
+
+# Conclusiones y limitaciones.
+
+Los resultados obtenidos del análisis realizado sugieren que podría haber cierto
+cambio en la presencia de metabolitos en muestras intestinales antes y después
+del transplante tendiendo a disminuir. Pero es cierto que en el análisis de compo-
+nentes principales podría mostrar cierto efecto batch en los resultados. También
+el bajo número de muestras analizadas impide sacar conclusiones más conclusivas. 
+Se sugiere en un futuro repetir el experimento aumentando el número de muestras
+a analizar. 
+
